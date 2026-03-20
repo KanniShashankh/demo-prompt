@@ -141,6 +141,12 @@ GEMINI_API_KEY=your_key_here pnpm start
 
 # Optional model override
 GEMINI_API_KEY=your_key_here GEMINI_MODEL=gemini-2.5-flash pnpm start
+
+# Recommended free-tier-friendly chain (fallbacks kick in on 429/quota errors)
+GEMINI_API_KEY=your_key_here \
+GEMINI_MODEL=gemini-2.5-flash \
+GEMINI_FALLBACK_MODELS=gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-2.0-flash \
+pnpm start
 ```
 
 ### Running Tests

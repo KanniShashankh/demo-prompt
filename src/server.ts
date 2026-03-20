@@ -90,7 +90,7 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
   next();
 });
 
@@ -347,6 +347,15 @@ app.post('/api/triage', rateLimiter, async (req: Request, res: Response) => {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     console.error('[Triage] Error:', message);
 
+    const isUpstreamRateLimit = /\b429\b|rate limit|quota exceeded|too many requests/i.test(message);
+    if (isUpstreamRateLimit) {
+      res.status(429).json({
+        error: 'Too many requests right now. Please wait a few seconds and try again.',
+        code: 'RATE_LIMITED',
+      });
+      return;
+    }
+
     const statusCode = message.includes('safety') ? 422 : 500;
     res.status(statusCode).json({
       error: message,
@@ -405,7 +414,12 @@ app.post('/api/triage/stream', rateLimiter, async (req: Request, res: Response) 
     send('done', {});
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Stream error';
-    send('error', { message });
+    const isUpstreamRateLimit = /\b429\b|rate limit|quota exceeded|too many requests/i.test(message);
+    send('error', {
+      message: isUpstreamRateLimit
+        ? 'Too many requests right now. Please wait a few seconds and try again.'
+        : message,
+    });
   } finally {
     res.end();
   }

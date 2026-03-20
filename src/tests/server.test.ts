@@ -205,11 +205,11 @@ describe('LifeBridge Server Integration Tests', () => {
       assert.equal(res.headers['x-xss-protection'], '1; mode=block');
     });
 
-    it('should include Permissions-Policy header restricting camera and microphone', async () => {
+    it('should include Permissions-Policy header restricting camera and allowing same-origin microphone', async () => {
       const res = await request({ path: '/health' });
       const policy = res.headers['permissions-policy'] ?? '';
       assert.ok(policy.includes('camera=()'), 'Permissions-Policy should restrict camera');
-      assert.ok(policy.includes('microphone=()'), 'Permissions-Policy should restrict microphone');
+      assert.ok(policy.includes('microphone=(self)'), 'Permissions-Policy should allow microphone for same-origin use');
     });
   });
 

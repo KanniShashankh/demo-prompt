@@ -11,6 +11,10 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-orb orb-1" aria-hidden="true"></div>
+  <div class="bg-orb orb-2" aria-hidden="true"></div>
+  <div class="bg-orb orb-3" aria-hidden="true"></div>
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <header>
@@ -29,6 +33,7 @@
   <main id="main-content" role="main">
     <!-- Hero Section -->
     <section class="hero" aria-labelledby="hero-title">
+      <p class="hero-kicker">AI Emergency Intelligence</p>
       <h2 id="hero-title" class="hero-title">Chaos In. <span class="gradient-text">Clarity Out.</span></h2>
       <p class="hero-subtitle">Drop any messy, unstructured real-world input — medical notes, disaster reports, weather alerts, traffic feeds, news articles, or a photo of an emergency scene — and get an instant, structured, life-saving action plan powered by Google Gemini.</p>
     </section>
@@ -73,7 +78,7 @@
     </section>
 
     <!-- Input Area -->
-    <section class="input-section" aria-labelledby="input-title">
+    <section class="input-section glass-panel" aria-labelledby="input-title">
       <h3 id="input-title" class="section-title">Describe the Situation</h3>
       <form id="triage-form" aria-label="Submit unstructured input for triage">
         <label for="user-input" class="sr-only">Paste or type your unstructured input here</label>
@@ -116,7 +121,7 @@
     </section>
 
     <!-- Results Area -->
-    <section class="results-section" id="results" aria-labelledby="results-title" hidden>
+    <section class="results-section glass-panel" id="results" aria-labelledby="results-title" hidden>
       <h3 id="results-title" class="section-title">Action Plan</h3>
       <div id="results-content" aria-live="polite" role="region">
         <!-- Dynamically populated by app.js -->

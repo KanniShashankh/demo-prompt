@@ -278,14 +278,27 @@ form.addEventListener('submit', async (e) => {
         typeof data?.error === 'string' && data.error.trim().length > 0
           ? data.error.trim()
           : '';
+
+      const rateLimitLike =
+        response.status === 429
+        || data?.code === 'RATE_LIMITED'
+        || /\b429\b|rate\s*limit|too\s*many\s*requests|quota\s*exceeded/i.test(serverMessage);
+
+      if (rateLimitLike) {
+        throw new Error('Too many requests right now. Please wait a few seconds and try again.');
+      }
+
       throw new Error(serverMessage || 'Something went wrong. Please try again.');
     }
 
     renderActionPlan(data.actionPlan, data.inputType, data.translation, data.locationEnriched);
     hideError();
   } catch (err) {
-    const message = err instanceof Error ? err.message : '';
-    showError(message || 'Failed to connect to the server. Please try again.');
+    const rawMessage = err instanceof Error ? err.message : '';
+    const cleanedMessage = /\b429\b|rate\s*limit|too\s*many\s*requests|quota\s*exceeded/i.test(rawMessage)
+      ? 'Too many requests right now. Please wait a few seconds and try again.'
+      : rawMessage;
+    showError(cleanedMessage || 'Failed to connect to the server. Please try again.');
   } finally {
     setLoading(false);
   }

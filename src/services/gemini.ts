@@ -28,6 +28,15 @@ import extractJsonFromString from 'extract-json-from-string';
 let genAI: GoogleGenerativeAI | null = null;
 let model: GenerativeModel | null = null;
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+const BUILTIN_FALLBACK_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+];
+
+let activeModelName: string | null = null;
+let modelChain: string[] = [];
+const modelCache = new Map<string, GenerativeModel>();
 
 // ────────────────────────────────────────────────────────────────
 // System prompt
@@ -105,24 +114,15 @@ export function initializeGemini(): boolean {
 
   try {
     genAI = new GoogleGenerativeAI(apiKey);
-    model = genAI.getGenerativeModel({
-      model: modelName,
-      systemInstruction: SYSTEM_PROMPT,
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT,        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,       threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      ],
-      generationConfig: {
-        temperature: 0.3,
-        topP: 0.8,
-        maxOutputTokens: 2048,
-        responseMimeType: 'application/json',
-      },
-    });
+    modelCache.clear();
+    modelChain = buildModelFallbackChain(modelName);
+    activeModelName = modelChain[0] ?? modelName;
+    model = getOrCreateModel(activeModelName);
 
-    console.log(`[Gemini] Initialized successfully with ${modelName}`);
+    const fallbackText = modelChain.length > 1
+      ? ` (fallbacks: ${modelChain.slice(1).join(', ')})`
+      : '';
+    console.log(`[Gemini] Initialized successfully with ${activeModelName}${fallbackText}`);
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -175,6 +175,137 @@ export function parseTriageJsonResponse(raw: string): Record<string, unknown> {
   return candidates.find(looksLikeActionPlan) ?? candidates[0];
 }
 
+function splitModelList(csv: string | undefined): string[] {
+  if (!csv) {
+    return [];
+  }
+
+  return csv
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+export function buildModelFallbackChain(primaryModel: string, fallbackCsv: string | undefined = process.env.GEMINI_FALLBACK_MODELS): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  const addUnique = (modelName: string): void => {
+    if (!modelName || seen.has(modelName)) {
+      return;
+    }
+    seen.add(modelName);
+    ordered.push(modelName);
+  };
+
+  addUnique(primaryModel);
+  for (const configuredFallback of splitModelList(fallbackCsv)) {
+    addUnique(configuredFallback);
+  }
+  for (const builtinFallback of BUILTIN_FALLBACK_MODELS) {
+    addUnique(builtinFallback);
+  }
+
+  return ordered;
+}
+
+export function isRateLimitOrQuotaError(message: string): boolean {
+  return /\b429\b|rate\s*limit|too\s*many\s*requests|quota\s*exceeded/i.test(message);
+}
+
+function isModelUnavailableError(message: string): boolean {
+  return /\b404\b|not\s*found|does\s*not\s*exist|unsupported|not\s*available|access\s*denied|permission\s*denied/i.test(message);
+}
+
+function getOrCreateModel(modelName: string): GenerativeModel {
+  if (!genAI) {
+    throw new Error('Gemini client is not initialized.');
+  }
+
+  const cached = modelCache.get(modelName);
+  if (cached) {
+    return cached;
+  }
+
+  const created = genAI.getGenerativeModel({
+    model: modelName,
+    systemInstruction: SYSTEM_PROMPT,
+    safetySettings: [
+      { category: HarmCategory.HARM_CATEGORY_HARASSMENT,        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,       threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+    ],
+    generationConfig: {
+      temperature: 0.3,
+      topP: 0.8,
+      maxOutputTokens: 2048,
+      responseMimeType: 'application/json',
+    },
+  });
+
+  modelCache.set(modelName, created);
+  return created;
+}
+
+async function runWithModelFallback<T>(operation: (activeModel: GenerativeModel) => Promise<T>): Promise<T> {
+  if (!model || !activeModelName) {
+    throw new Error('Gemini is not initialized. Check your API key configuration.');
+  }
+
+  const candidates = modelChain.length > 0 ? modelChain : [activeModelName];
+  let rateLimitError: Error | null = null;
+
+  for (let idx = 0; idx < candidates.length; idx += 1) {
+    const candidateName = candidates[idx] as string;
+    const fallbackAttempt = idx > 0;
+
+    try {
+      const candidateModel = getOrCreateModel(candidateName);
+      const result = await operation(candidateModel);
+
+      if (activeModelName !== candidateName) {
+        activeModelName = candidateName;
+        model = candidateModel;
+        console.warn(`[Gemini] Switched active model to ${candidateName} after rate-limit fallback.`);
+      }
+
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (isRateLimitOrQuotaError(message)) {
+        rateLimitError = error instanceof Error ? error : new Error(message);
+        if (idx < candidates.length - 1) {
+          const nextModel = candidates[idx + 1] as string;
+          console.warn(`[Gemini] Model ${candidateName} is rate-limited. Retrying with ${nextModel}.`);
+          continue;
+        }
+        break;
+      }
+
+      if (fallbackAttempt && isModelUnavailableError(message)) {
+        if (idx < candidates.length - 1) {
+          const nextModel = candidates[idx + 1] as string;
+          console.warn(`[Gemini] Model ${candidateName} unavailable. Trying ${nextModel}.`);
+          continue;
+        }
+
+        if (rateLimitError) {
+          console.warn(`[Gemini] Model ${candidateName} unavailable after rate-limit fallback attempts.`);
+          break;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error('Rate limited across all configured Gemini models. Please wait a few seconds and try again.', {
+    cause: rateLimitError ?? undefined,
+  });
+}
+
 /**
  * Send a prompt to Gemini and receive a structured JSON response.
  *
@@ -189,11 +320,12 @@ export async function generateTriageResponse(prompt: string): Promise<Record<str
   }
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const raw = response.text();
-
-    return parseTriageJsonResponse(raw);
+    return await runWithModelFallback(async (activeModel) => {
+      const result = await activeModel.generateContent(prompt);
+      const response = result.response;
+      const raw = response.text();
+      return parseTriageJsonResponse(raw);
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -202,6 +334,9 @@ export async function generateTriageResponse(prompt: string): Promise<Record<str
     }
     if (message.includes('SAFETY')) {
       throw new Error('The input was flagged by safety filters. Please rephrase your input.', { cause: error });
+    }
+    if (isRateLimitOrQuotaError(message)) {
+      throw new Error('Rate limited across available AI models. Please wait a few seconds and try again.', { cause: error });
     }
     throw new Error(`Gemini API error: ${message}`, { cause: error });
   }
@@ -234,9 +369,11 @@ export async function generateImageTriageResponse(
   ];
 
   try {
-    const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
-    const raw = result.response.text();
-    return parseTriageJsonResponse(raw);
+    return await runWithModelFallback(async (activeModel) => {
+      const result = await activeModel.generateContent({ contents: [{ role: 'user', parts }] });
+      const raw = result.response.text();
+      return parseTriageJsonResponse(raw);
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (error instanceof SyntaxError) {
@@ -244,6 +381,9 @@ export async function generateImageTriageResponse(
     }
     if (message.includes('SAFETY')) {
       throw new Error('The image was flagged by safety filters.', { cause: error });
+    }
+    if (isRateLimitOrQuotaError(message)) {
+      throw new Error('Rate limited across available AI models. Please wait a few seconds and try again.', { cause: error });
     }
     throw new Error(`Gemini Vision API error: ${message}`, { cause: error });
   }
@@ -263,12 +403,23 @@ export async function* streamTriageResponse(prompt: string): AsyncGenerator<stri
     throw new Error('Gemini is not initialized. Check your API key configuration.');
   }
 
-  const result = await model.generateContentStream(prompt);
+  try {
+    const result = await runWithModelFallback((activeModel) => activeModel.generateContentStream(prompt));
 
-  for await (const chunk of result.stream) {
-    const text = chunk.text();
-    if (text) {
-      yield text;
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) {
+        yield text;
+      }
     }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('SAFETY')) {
+      throw new Error('The input was flagged by safety filters. Please rephrase your input.', { cause: error });
+    }
+    if (isRateLimitOrQuotaError(message)) {
+      throw new Error('Rate limited across available AI models. Please wait a few seconds and try again.', { cause: error });
+    }
+    throw new Error(`Gemini stream API error: ${message}`, { cause: error });
   }
 }
