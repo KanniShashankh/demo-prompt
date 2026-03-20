@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="LifeBridge — AI-powered emergency triage assistant that converts chaotic, unstructured inputs into structured, life-saving action plans.">
+  <title>LifeBridge — Emergency Triage Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header>
+    <nav aria-label="Main navigation">
+      <div class="nav-brand">
+        <span class="logo" aria-hidden="true">🌉</span>
+        <h1>LifeBridge</h1>
+      </div>
+      <div class="nav-links">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/health">API Status</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main-content" role="main">
+    <!-- Hero Section -->
+    <section class="hero" aria-labelledby="hero-title">
+      <h2 id="hero-title" class="hero-title">Chaos In. <span class="gradient-text">Clarity Out.</span></h2>
+      <p class="hero-subtitle">Paste any messy, unstructured emergency data — medical notes, disaster reports, crisis descriptions — and get an instant, structured, life-saving action plan powered by Google Gemini.</p>
+    </section>
+
+    <!-- Scenario Quick-Select -->
+    <section class="scenarios" aria-labelledby="scenarios-title">
+      <h3 id="scenarios-title" class="sr-only">Sample Scenarios</h3>
+      <div class="scenario-buttons" role="group" aria-label="Load a sample scenario">
+        <button type="button" class="scenario-btn" data-scenario="medical" id="btn-medical">
+          <span class="scenario-icon" aria-hidden="true">🏥</span>
+          <span>Medical Triage</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="disaster" id="btn-disaster">
+          <span class="scenario-icon" aria-hidden="true">🌊</span>
+          <span>Disaster Report</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="emergency" id="btn-emergency">
+          <span class="scenario-icon" aria-hidden="true">🚨</span>
+          <span>Active Emergency</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Input Area -->
+    <section class="input-section" aria-labelledby="input-title">
+      <h3 id="input-title" class="section-title">Describe the Situation</h3>
+      <form id="triage-form" aria-label="Submit unstructured input for triage">
+        <label for="user-input" class="sr-only">Paste or type your unstructured input here</label>
+        <textarea
+          id="user-input"
+          name="input"
+          rows="6"
+          placeholder="Paste messy medical notes, describe a disaster situation, or type a chaotic emergency report here..."
+          aria-describedby="input-hint"
+          required
+          maxlength="5000"
+        ></textarea>
+        <div class="input-footer">
+          <span id="input-hint" class="char-count" aria-live="polite">0 / 5000</span>
+          <button type="submit" id="submit-btn" aria-label="Analyze input and generate action plan">
+            <span class="btn-text">Analyze &amp; Triage</span>
+            <span class="btn-loading" aria-hidden="true" hidden>
+              <span class="spinner"></span>
+              Processing...
+            </span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Results Area -->
+    <section class="results-section" id="results" aria-labelledby="results-title" hidden>
+      <h3 id="results-title" class="section-title">Action Plan</h3>
+      <div id="results-content" aria-live="polite" role="region">
+        <!-- Dynamically populated by app.js -->
+      </div>
+    </section>
+
+    <!-- Error Area -->
+    <div id="error-display" class="error-banner" role="alert" hidden>
+      <span class="error-icon" aria-hidden="true">⚠️</span>
+      <span id="error-message"></span>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 LifeBridge. Built with <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer">Google Gemini</a> &amp; <a href="https://cloud.google.com/run" target="_blank" rel="noopener noreferrer">Cloud Run</a>.</p>
+    <p class="footer-disclaimer">AI-generated guidance only. Always consult qualified professionals.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
