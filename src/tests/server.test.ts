@@ -14,20 +14,13 @@
  * the server's validation, routing, and middleware layers.
  */
 
-import { describe, it, before } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import http from 'http';
-
-// ────────────────────────────────────────────────────────────────
-// Test server setup
-// ────────────────────────────────────────────────────────────────
+import http, { type Server } from 'http';
 
 const PORT = 9876;
 process.env.PORT = String(PORT);
-
-// ────────────────────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────────────────────
+let testServer: Server | null = null;
 
 interface HttpResponse {
   statusCode: number;
@@ -35,10 +28,6 @@ interface HttpResponse {
   body: string;
 }
 
-/**
- * Make an HTTP request to the test server.
- * Returns a promise with the status code, headers, and body.
- */
 function request(options: {
   method?: string;
   path: string;
@@ -76,10 +65,10 @@ function request(options: {
   });
 }
 
-/** Wait for the server to be ready by polling the health endpoint. */
 function waitForServer(maxRetries = 10): Promise<void> {
   return new Promise((resolve, reject) => {
     let attempts = 0;
+
     const check = () => {
       const req = http.get(`http://localhost:${PORT}/health`, (res) => {
         res.resume();
@@ -89,8 +78,10 @@ function waitForServer(maxRetries = 10): Promise<void> {
           retry();
         }
       });
+
       req.on('error', () => retry());
     };
+
     const retry = () => {
       attempts++;
       if (attempts >= maxRetries) {
@@ -99,20 +90,34 @@ function waitForServer(maxRetries = 10): Promise<void> {
         setTimeout(check, 200);
       }
     };
+
     check();
   });
 }
 
-// ────────────────────────────────────────────────────────────────
-// Tests
-// ────────────────────────────────────────────────────────────────
-
 describe('LifeBridge Server Integration Tests', () => {
   before(async () => {
-    // Import server (triggers app.listen on PORT)
-    require('../server');
-    // Wait for it to be ready
+    const serverModule = require('../server') as { server?: Server };
+    testServer = serverModule.server ?? null;
     await waitForServer();
+  });
+
+  after(async () => {
+    if (!testServer) {
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      testServer?.close((error?: Error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+
+    testServer = null;
   });
 
   describe('GET /health', () => {

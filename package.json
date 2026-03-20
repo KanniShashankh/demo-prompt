@@ -7,12 +7,13 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
-    "test": "tsc && node --test dist/tests/",
+    "test": "tsc && node --test dist/tests/*.test.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
-    "express": "^4.21.0"
+    "express": "^4.21.0",
+    "extract-json-from-string": "^1.0.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

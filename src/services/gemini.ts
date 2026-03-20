@@ -18,6 +18,7 @@ import {
   HarmBlockThreshold,
   type GenerativeModel,
 } from '@google/generative-ai';
+import extractJsonFromString from 'extract-json-from-string';
 
 // ────────────────────────────────────────────────────────────────
 // Module state
@@ -124,6 +125,34 @@ export function initializeGemini(): boolean {
 // Generation
 // ────────────────────────────────────────────────────────────────
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function looksLikeActionPlan(obj: Record<string, unknown>): boolean {
+  return ['severity', 'title', 'summary', 'actionSteps'].every((key) => key in obj);
+}
+
+/**
+ * Parse model output text into a structured object using a JSON extraction library.
+ *
+ * The model can still return prose and markdown fences around JSON despite
+ * `responseMimeType: 'application/json'`, so we extract JSON candidates safely.
+ */
+export function parseTriageJsonResponse(raw: string): Record<string, unknown> {
+  const text = raw?.trim();
+  if (!text) {
+    throw new SyntaxError('Empty model response');
+  }
+
+  const candidates = extractJsonFromString(text).filter(isRecord);
+  if (candidates.length === 0) {
+    throw new SyntaxError('No JSON object found in model response');
+  }
+
+  return candidates.find(looksLikeActionPlan) ?? candidates[0];
+}
+
 /**
  * Send a prompt to Gemini and receive a structured JSON response.
  *
@@ -140,15 +169,14 @@ export async function generateTriageResponse(prompt: string): Promise<Record<str
   try {
     const result = await model.generateContent(prompt);
     const response = result.response;
-    const text = response.text();
+    const raw = response.text();
 
-    // Parse the JSON response (Gemini is configured for JSON output)
-    return JSON.parse(text) as Record<string, unknown>;
+    return parseTriageJsonResponse(raw);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
     if (error instanceof SyntaxError) {
-      throw new Error('Failed to parse Gemini response as structured data.');
+      throw new Error(`Failed to parse Gemini response as structured data. ${message}`);
     }
     if (message.includes('SAFETY')) {
       throw new Error('The input was flagged by safety filters. Please rephrase your input.');

@@ -16,6 +16,7 @@
  */
 
 import express, { type Request, type Response, type NextFunction } from 'express';
+import fs from 'fs';
 import path from 'path';
 
 import { initializeGemini, generateTriageResponse } from './services/gemini';
@@ -26,6 +27,34 @@ import { telemetryMiddleware, telemetryRoute, emit } from './services/telemetry'
 // ────────────────────────────────────────────────────────────────
 // App initialization
 // ────────────────────────────────────────────────────────────────
+
+function loadEnvFileIfPresent(): void {
+  const envFilePath = path.resolve(process.cwd(), '.env');
+  if (!fs.existsSync(envFilePath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(envFilePath, 'utf8');
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim().replace(/^['\"]|['\"]$/g, '');
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFileIfPresent();
 
 const app = express();
 const PORT = process.env.PORT ?? 8080;
@@ -99,7 +128,7 @@ function rateLimiter(req: Request, res: Response, next: NextFunction): void {
 }
 
 /** Periodically clean up expired rate limit entries to prevent memory leaks. */
-setInterval(() => {
+const rateLimitCleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of rateLimitMap) {
     if (now > entry.resetAt) {
@@ -107,6 +136,7 @@ setInterval(() => {
     }
   }
 }, RATE_LIMIT_WINDOW_MS);
+rateLimitCleanupTimer.unref();
 
 // ────────────────────────────────────────────────────────────────
 // Static files
@@ -255,4 +285,5 @@ process.on('SIGTERM', () => {
   });
 });
 
+export { server };
 export default app;
