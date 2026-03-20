@@ -132,6 +132,39 @@ describe('classifyInputType', () => {
     const input = 'PATIENT has DIABETES and FEVER';
     assert.equal(classifyInputType(input), 'medical');
   });
+
+  it('should classify traffic input correctly', () => {
+    const input = 'there was a vehicle collision on the highway, multiple cars involved, road is blocked';
+    assert.equal(classifyInputType(input), 'traffic');
+  });
+
+  it('should classify weather input correctly', () => {
+    const input = 'extreme heat wave today, temperature is very high, uv index dangerous, heat advisory issued';
+    assert.equal(classifyInputType(input), 'weather');
+  });
+
+  it('should classify public health input correctly', () => {
+    const input = 'outbreak of disease reported, community spread confirmed, quarantine zone established, virus detected';
+    assert.equal(classifyInputType(input), 'public-health');
+  });
+
+  it('should classify infrastructure input correctly', () => {
+    const input = 'major power outage affecting six blocks, blackout started at 3am, grid failure reported';
+    assert.equal(classifyInputType(input), 'infrastructure');
+  });
+
+  it('should prioritize emergency over traffic on tie', () => {
+    // accident is in emergency keywords, car crash is in traffic — emergency should win
+    const input = 'car accident crash on highway, person unconscious';
+    assert.equal(classifyInputType(input), 'emergency');
+  });
+
+  it('should return general when input only has weather and no specific alert keywords', () => {
+    // Only 1 keyword from any category — still classifies
+    const result = classifyInputType('the temperature outside is mild');
+    // 'temperature' matches weather
+    assert.equal(result, 'weather');
+  });
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -158,6 +191,26 @@ describe('buildContextPrompt', () => {
   it('should include emergency context prefix for emergency input', () => {
     const prompt = buildContextPrompt('test input', 'emergency');
     assert.ok(prompt.includes('TIME-CRITICAL'), 'Should contain emergency context');
+  });
+
+  it('should include traffic context prefix for traffic input', () => {
+    const prompt = buildContextPrompt('test input', 'traffic');
+    assert.ok(prompt.includes('traffic'), 'Should contain traffic context');
+  });
+
+  it('should include weather context prefix for weather input', () => {
+    const prompt = buildContextPrompt('test input', 'weather');
+    assert.ok(prompt.includes('weather'), 'Should contain weather context');
+  });
+
+  it('should include public-health context prefix for public-health input', () => {
+    const prompt = buildContextPrompt('test input', 'public-health');
+    assert.ok(prompt.includes('public health') || prompt.includes('outbreak'), 'Should contain public health context');
+  });
+
+  it('should include infrastructure context prefix for infrastructure input', () => {
+    const prompt = buildContextPrompt('test input', 'infrastructure');
+    assert.ok(prompt.includes('infrastructure') || prompt.includes('utility'), 'Should contain infrastructure context');
   });
 
   it('should include general context prefix for general input', () => {

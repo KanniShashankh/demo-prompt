@@ -17,6 +17,7 @@ import {
   HarmCategory,
   HarmBlockThreshold,
   type GenerativeModel,
+  type Part,
 } from '@google/generative-ai';
 import extractJsonFromString from 'extract-json-from-string';
 
@@ -38,11 +39,16 @@ const DEFAULT_MODEL = 'gemini-2.5-flash';
  *
  * Key behaviors:
  *   - Always responds with valid JSON matching the ActionPlan schema
+ *   - Handles ALL input types: plain text, voice transcripts, weather
+ *     data, traffic feeds, medical records, news alerts, IoT sensors,
+ *     and visual/photo evidence
  *   - Prioritizes life-threatening conditions first
  *   - Flags drug interactions and contraindications
  *   - Includes mandatory medical disclaimers
  */
-const SYSTEM_PROMPT = `You are LifeBridge, an emergency triage and crisis response AI. Your role is to take chaotic, unstructured, real-world input and convert it into a clear, structured, life-saving action plan.
+const SYSTEM_PROMPT = `You are LifeBridge, a universal emergency triage and crisis response AI.
+
+Your purpose is to act as a bridge between chaotic, unstructured real-world inputs — whether text, voice transcripts, weather data, traffic feeds, medical records, news alerts, IoT sensor readings, or visual evidence from photos — and clear, structured, life-saving action plans.
 
 You MUST respond with valid JSON only. No markdown, no extra text. Use this exact schema:
 
@@ -69,8 +75,12 @@ Rules:
 3. If the input describes an active emergency, the first action MUST be to call emergency services.
 4. Be specific and actionable — never say vague things like "seek help".
 5. Consider the full context: age, medications, pre-existing conditions, environment.
-6. If the input is not an emergency, still provide structured, helpful guidance.
-7. ALWAYS include the disclaimer field.`;
+6. For weather / traffic / sensor data: translate readings into human risk assessments with concrete protective actions.
+7. For medical records or voice transcripts: extract all clinical details and flag critical interactions.
+8. For news alerts or public-health reports: identify population at risk and containment priorities.
+9. For photos or visual descriptions: describe what you observe and translate it into safety actions.
+10. If the input is not an emergency, still provide structured, helpful guidance.
+11. ALWAYS include the disclaimer field.`;
 
 // ────────────────────────────────────────────────────────────────
 // Initialization
@@ -133,6 +143,18 @@ function looksLikeActionPlan(obj: Record<string, unknown>): boolean {
   return ['severity', 'title', 'summary', 'actionSteps'].every((key) => key in obj);
 }
 
+function extractPlanCandidates(value: unknown): Record<string, unknown>[] {
+  if (isRecord(value)) {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter(isRecord);
+  }
+
+  return [];
+}
+
 /**
  * Parse model output text into a structured object using a JSON extraction library.
  *
@@ -145,7 +167,7 @@ export function parseTriageJsonResponse(raw: string): Record<string, unknown> {
     throw new SyntaxError('Empty model response');
   }
 
-  const candidates = extractJsonFromString(text).filter(isRecord);
+  const candidates = extractJsonFromString(text).flatMap(extractPlanCandidates);
   if (candidates.length === 0) {
     throw new SyntaxError('No JSON object found in model response');
   }
@@ -176,12 +198,54 @@ export async function generateTriageResponse(prompt: string): Promise<Record<str
     const message = error instanceof Error ? error.message : String(error);
 
     if (error instanceof SyntaxError) {
-      throw new Error(`Failed to parse Gemini response as structured data. ${message}`);
+      throw new Error(`Failed to parse Gemini response as structured data. ${message}`, { cause: error });
     }
     if (message.includes('SAFETY')) {
-      throw new Error('The input was flagged by safety filters. Please rephrase your input.');
+      throw new Error('The input was flagged by safety filters. Please rephrase your input.', { cause: error });
     }
-    throw new Error(`Gemini API error: ${message}`);
+    throw new Error(`Gemini API error: ${message}`, { cause: error });
+  }
+}
+
+/**
+ * Send a prompt together with an inline image to Gemini Vision and receive
+ * a structured JSON triage response.
+ *
+ * Accepts base64-encoded image data directly — no Storage dependency.
+ *
+ * @param prompt     - Context-enriched text prompt
+ * @param imageBase64 - Base64-encoded image (without the data-URI prefix)
+ * @param mimeType   - Image MIME type (default: 'image/jpeg')
+ * @returns Parsed JSON triage object
+ * @throws {Error} If Gemini is not initialized or the response can't be parsed
+ */
+export async function generateImageTriageResponse(
+  prompt: string,
+  imageBase64: string,
+  mimeType: string = 'image/jpeg',
+): Promise<Record<string, unknown>> {
+  if (!model) {
+    throw new Error('Gemini is not initialized. Check your API key configuration.');
+  }
+
+  const parts: Part[] = [
+    { text: prompt },
+    { inlineData: { mimeType, data: imageBase64 } },
+  ];
+
+  try {
+    const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
+    const raw = result.response.text();
+    return parseTriageJsonResponse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof SyntaxError) {
+      throw new Error(`Failed to parse Gemini Vision response as structured data. ${message}`, { cause: error });
+    }
+    if (message.includes('SAFETY')) {
+      throw new Error('The image was flagged by safety filters.', { cause: error });
+    }
+    throw new Error(`Gemini Vision API error: ${message}`, { cause: error });
   }
 }
 

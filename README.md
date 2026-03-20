@@ -1,6 +1,6 @@
 # LifeBridge — Emergency Triage & Crisis Response Assistant
 
-A Gemini-powered web application that takes **unstructured, chaotic, real-world inputs** — messy medical notes, frantic emergency descriptions, disaster situation reports — and instantly converts them into **structured, verified, life-saving action plans**.
+A Gemini-powered web application that accepts **chaotic, real-world inputs across text, voice, structured feeds, and photos** and converts them into **structured, actionable emergency response plans**.
 
 ## Chosen Vertical
 
@@ -8,20 +8,22 @@ A Gemini-powered web application that takes **unstructured, chaotic, real-world 
 
 ## Approach and Logic
 
-The system uses a three-stage processing pipeline:
+The current pipeline is multi-stage and multi-modal:
 
-1. **Input Processing** — Raw text is sanitized (XSS prevention, HTML stripping, length enforcement), then classified into one of four categories (medical, disaster, emergency, general) using a keyword-frequency scoring model.
-
-2. **Contextual Prompting** — Based on the classification, a context-specific prompt is constructed that guides Google Gemini to focus on the most relevant details (e.g., drug interactions for medical, infrastructure damage for disasters).
-
-3. **Structured Output** — Gemini responds with structured JSON conforming to a strict schema. The response is validated, severity metadata is attached, action steps are priority-sorted, and a mandatory safety disclaimer is added.
+1. **Input normalization** — Accepts plain text plus structured JSON payloads (weather, traffic, medical records, public-health reports, IoT sensor data, voice transcripts).
+2. **Language bridge** — Detects and translates non-English input to English (best-effort fallback-safe).
+3. **Geographic enrichment** — Extracts location mentions, geocodes them, and appends nearby emergency services context.
+4. **AI triage generation** — Uses Gemini for structured triage output (text path or image+text path).
+5. **Output validation/formatting** — Normalizes severity metadata and response schema.
+6. **Optional voice output** — Synthesizes spoken summary for hands-free use.
 
 ### Key Design Decisions
 
 - **TypeScript** with strict mode for type safety and maintainability
 - **Zero frontend frameworks** — vanilla HTML/CSS/JS for minimal footprint
-- **Only 2 production dependencies** — `express` and `@google/generative-ai`
+- **Lean production deps** — `express`, `@google/generative-ai`, and `extract-json-from-string`
 - **Node.js built-in test runner** (`node --test`) — zero test framework overhead
+- **ESLint (flat config) for TypeScript** with repo-wide `lint` / `lint:fix` scripts
 - **Input sanitization** to guard against prompt injection and XSS
 - **Safety settings** on all Gemini harm categories (BLOCK_MEDIUM_AND_ABOVE)
 - **Rate limiting** to prevent API abuse
@@ -31,37 +33,38 @@ The system uses a three-stage processing pipeline:
 
 1. User visits the deployed Cloud Run URL
 2. The interface presents a large text input area with sample scenario buttons
-3. User pastes or types chaotic, unstructured text (e.g., medical notes, emergency descriptions)
+3. User can paste text, load a scenario, dictate speech, or attach a photo for visual triage
 4. The frontend sends the text to `POST /api/triage`
-5. Server pipeline: sanitize → classify → prompt → Gemini → validate → format
+5. Server pipeline: normalize → translate → enrich location → prompt → Gemini → validate → format
 6. A structured action plan card is rendered with severity level, findings, steps, warnings, and contacts
 
 ### Running Locally
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build TypeScript
-npm run build
+pnpm run build
 
-# Start the server (requires GEMINI_API_KEY env var)
-GEMINI_API_KEY=your_key_here npm start
+# Start server (requires GEMINI_API_KEY)
+GEMINI_API_KEY=your_key_here pnpm start
 
-# Optional: override model (default is gemini-2.5-flash)
-GEMINI_API_KEY=your_key_here GEMINI_MODEL=gemini-2.5-flash npm start
-
-# Visit http://localhost:8080
+# Optional model override
+GEMINI_API_KEY=your_key_here GEMINI_MODEL=gemini-2.5-flash pnpm start
 ```
 
 ### Running Tests
 
 ```bash
-npm test
+pnpm run lint
+pnpm test
+pnpm run typecheck
 ```
 
 Tests include:
 - **Unit tests** for input sanitization, classification, and output formatting
+- **Unit tests** for translation, speech-to-text, text-to-speech, location enrichment, and input normalization
 - **Integration tests** for HTTP API validation, security headers, and error handling
 - **Memory tests** that validate no leaks across 10,000+ iterations of each function
 
@@ -80,6 +83,7 @@ Tests include:
 - **Runtime:** Node.js 20
 - **Framework:** Express.js
 - **AI:** Google Gemini (default: gemini-2.5-flash via `@google/generative-ai`)
+- **Google Services:** Gemini, Translation API, Maps Geocoding/Places, Speech-to-Text, Text-to-Speech
 - **Deployment:** Google Cloud Run (Docker)
 - **Testing:** Node.js built-in test runner (`node:test`)
 
@@ -90,20 +94,31 @@ lifebridge/
 ├── src/
 │   ├── server.ts                 # Express app entry point
 │   ├── services/
-│   │   ├── gemini.ts             # Gemini API client with safety settings
+│   │   ├── gemini.ts             # Gemini text + vision generation
+│   │   ├── inputNormalizer.ts    # Structured payload normalization
 │   │   ├── inputProcessor.ts     # Sanitize, classify, build prompts
+│   │   ├── translation.ts        # Language detection/translation bridge
+│   │   ├── locationEnricher.ts   # Google Maps geocoding + nearby services
+│   │   ├── speechToText.ts       # Google STT integration
+│   │   ├── textToSpeech.ts       # Google TTS integration
 │   │   ├── outputFormatter.ts    # Parse, validate, format action plans
 │   │   └── telemetry.ts          # Request monitoring middleware
 │   └── tests/
+│       ├── inputNormalizer.test.ts
 │       ├── inputProcessor.test.ts
+│       ├── locationEnricher.test.ts
 │       ├── outputFormatter.test.ts
 │       ├── server.test.ts
+│       ├── speechToText.test.ts
+│       ├── textToSpeech.test.ts
+│       ├── translation.test.ts
 │       └── memory.test.ts
 ├── public/
-│   ├── index.html                # Accessible, semantic frontend
-│   ├── styles.css                # Premium dark theme
-│   └── app.js                    # Client-side logic
+│   ├── index.html                # Accessible UI shell
+│   ├── styles.css                # Dark theme + interaction styles
+│   └── app.js                    # Frontend logic (voice, image upload, triage)
 ├── package.json
+├── eslint.config.mjs
 ├── tsconfig.json
 ├── Dockerfile
 └── README.md

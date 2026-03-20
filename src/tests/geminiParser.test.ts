@@ -41,4 +41,19 @@ describe('parseTriageJsonResponse', () => {
   it('throws when no JSON object is present', () => {
     assert.throws(() => parseTriageJsonResponse('no structured payload present'), /No JSON object found/);
   });
+
+  it('parses top-level JSON array containing an action plan object', () => {
+    const raw = '[{"severity":"URGENT","title":"Flood","summary":"Severe flood event","actionSteps":[]}]';
+    const parsed = parseTriageJsonResponse(raw);
+
+    assert.equal(parsed.severity, 'URGENT');
+    assert.equal(parsed.title, 'Flood');
+  });
+
+  it('parses prose-wrapped JSON array payload', () => {
+    const raw = 'Structured result:\n[{"severity":"CRITICAL","title":"Bridge risk","summary":"Potential collapse","actionSteps":[]}]\nEnd.';
+    const parsed = parseTriageJsonResponse(raw);
+
+    assert.equal(parsed.severity, 'CRITICAL');
+  });
 });

@@ -10,6 +10,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 :root {
   --bg-primary: #0a0f1e;
   --bg-secondary: #111827;
@@ -20,6 +24,8 @@
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   --accent-blue: #3b82f6;
+  --primary: #3b82f6;
+  --border: rgba(255, 255, 255, 0.12);
   --accent-blue-glow: rgba(59, 130, 246, 0.3);
   --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
   --severity-critical: #ef4444;
@@ -213,6 +219,12 @@ main {
   transform: translateY(-1px);
 }
 
+.scenario-btn.active {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: var(--text-primary);
+}
+
 .scenario-btn:focus-visible {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
@@ -270,6 +282,53 @@ textarea:focus {
 .char-count {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.image-upload-section {
+  margin-top: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.image-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  background: var(--bg-glass);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.image-upload-label:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  color: var(--text-primary);
+}
+
+.image-file-name {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.clear-image-btn {
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.clear-image-btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
 /* --- Submit Button --- */
@@ -643,4 +702,76 @@ footer a:focus-visible {
     flex-direction: column;
     gap: 0.5rem;
   }
+
+  .meta-badges {
+    flex-direction: column;
+  }
+}
+
+/* ─── Voice input button ───────────────────────────────────── */
+
+.voice-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.voice-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.voice-btn.recording {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  animation: pulse-border 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
+  50%       { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+/* ─── Translation / location metadata badges ───────────────── */
+
+.meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.translate-badge {
+  background: color-mix(in srgb, #3b82f6 12%, transparent);
+  color: #3b82f6;
+  border: 1px solid color-mix(in srgb, #3b82f6 30%, transparent);
+}
+
+.location-badge {
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+  color: #16a34a;
+  border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
 }

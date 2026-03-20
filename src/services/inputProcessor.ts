@@ -17,8 +17,20 @@
 /** Maximum allowed input length in characters. */
 export const MAX_INPUT_LENGTH = 5000;
 
-/** Recognized input categories. */
-export type InputType = 'medical' | 'disaster' | 'emergency' | 'general';
+/**
+ * Recognized input categories.
+ * Spans the full range of real-world messy inputs LifeBridge handles:
+ * from acute medical emergencies through environmental and infrastructure crises.
+ */
+export type InputType =
+  | 'medical'
+  | 'disaster'
+  | 'emergency'
+  | 'traffic'
+  | 'weather'
+  | 'public-health'
+  | 'infrastructure'
+  | 'general';
 
 // ────────────────────────────────────────────────────────────────
 // Keyword dictionaries for classification
@@ -43,6 +55,34 @@ const EMERGENCY_KEYWORDS: readonly string[] = [
   'bleeding', 'fallen', 'attacked', 'gunshot', 'stabbed', 'drowning',
   'overdose', 'seizure', 'stroke', 'heart attack', 'anaphylaxis',
   'burns', 'electrocution', 'poisoning', 'cardiac arrest',
+] as const;
+
+const TRAFFIC_KEYWORDS: readonly string[] = [
+  'traffic', 'vehicle', 'road', 'highway', 'intersection', 'collision',
+  'car crash', 'truck', 'pedestrian', 'cyclist', 'lane', 'bridge closure',
+  'road block', 'congestion', 'pile-up', 'hit and run', 'road accident',
+  'motorway', 'junction', 'detour', 'road closure',
+] as const;
+
+const WEATHER_KEYWORDS: readonly string[] = [
+  'temperature', 'humidity', 'wind', 'rain', 'snow', 'hail', 'fog',
+  'blizzard', 'thunderstorm', 'lightning', 'heat wave', 'cold snap',
+  'weather alert', 'weather warning', 'extreme cold', 'extreme heat',
+  'uv index', 'wildfire smoke', 'air quality', 'frost', 'ice storm',
+] as const;
+
+const PUBLIC_HEALTH_KEYWORDS: readonly string[] = [
+  'outbreak', 'disease', 'epidemic', 'pandemic', 'contamination',
+  'water contamination', 'food poisoning', 'infection', 'quarantine',
+  'virus', 'bacteria', 'exposure', 'airborne', 'contagious', 'health alert',
+  'public health', 'vaccination', 'immunization', 'community spread',
+] as const;
+
+const INFRASTRUCTURE_KEYWORDS: readonly string[] = [
+  'power outage', 'blackout', 'water main', 'gas leak', 'pipeline',
+  'dam', 'levee', 'bridge failure', 'building collapse', 'structural',
+  'utility', 'sewage', 'electricity', 'grid failure', 'tower collapse',
+  'communication failure', 'telecom', 'infrastructure', 'network outage',
 ] as const;
 
 // ────────────────────────────────────────────────────────────────
@@ -97,19 +137,30 @@ export function classifyInputType(text: string): InputType {
   const lower = text.toLowerCase();
 
   // Count keyword hits per category
-  const medicalScore = MEDICAL_KEYWORDS.filter(kw => lower.includes(kw)).length;
-  const disasterScore = DISASTER_KEYWORDS.filter(kw => lower.includes(kw)).length;
-  const emergencyScore = EMERGENCY_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const medicalScore        = MEDICAL_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const disasterScore       = DISASTER_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const emergencyScore      = EMERGENCY_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const trafficScore        = TRAFFIC_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const weatherScore        = WEATHER_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const publicHealthScore   = PUBLIC_HEALTH_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const infrastructureScore = INFRASTRUCTURE_KEYWORDS.filter(kw => lower.includes(kw)).length;
 
-  const maxScore = Math.max(medicalScore, disasterScore, emergencyScore);
+  const maxScore = Math.max(
+    medicalScore, disasterScore, emergencyScore,
+    trafficScore, weatherScore, publicHealthScore, infrastructureScore,
+  );
 
   // No keywords matched at all
   if (maxScore === 0) return 'general';
 
-  // Priority: emergency > disaster > medical (in case of ties)
-  if (emergencyScore === maxScore) return 'emergency';
-  if (disasterScore === maxScore) return 'disaster';
-  return 'medical';
+  // Priority on ties: emergency > disaster > traffic > medical > infrastructure > public-health > weather
+  if (emergencyScore      === maxScore) return 'emergency';
+  if (disasterScore       === maxScore) return 'disaster';
+  if (trafficScore        === maxScore) return 'traffic';
+  if (medicalScore        === maxScore) return 'medical';
+  if (infrastructureScore === maxScore) return 'infrastructure';
+  if (publicHealthScore   === maxScore) return 'public-health';
+  return 'weather';
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -132,6 +183,28 @@ const CONTEXT_PREFIXES: Record<InputType, string> = {
     'The following describes an active emergency. This is TIME-CRITICAL. ' +
     'Extract all details (what happened, who is affected, current condition, location, hazards) ' +
     'and provide IMMEDIATE structured action steps:',
+
+  traffic:
+    'The following is a traffic incident report (may include sensor data, feeds, or a witness account). ' +
+    'Extract all details (vehicles, casualties, road hazards, blockage, affected routes) ' +
+    'and provide a structured traffic emergency response plan with routing and rescue priorities:',
+
+  weather:
+    'The following contains weather data or a weather-related alert. ' +
+    'Extract all details (conditions, temperatures, wind, precipitation, active alerts) ' +
+    'and identify any life-threatening risks to people, infrastructure, or agriculture. ' +
+    'Provide a structured safety action plan:',
+
+  'public-health':
+    'The following describes a public health situation (outbreak, contamination, or health alert). ' +
+    'Extract all epidemiological details (affected population, symptoms, exposure pathways, location) ' +
+    'and provide a structured public health response plan with containment and treatment priorities:',
+
+  infrastructure:
+    'The following reports an infrastructure failure or utility emergency ' +
+    '(power outage, gas leak, water main, structural collapse, etc.). ' +
+    'Extract all details (location, scope of failure, affected services, hazards) ' +
+    'and provide a structured infrastructure emergency response plan:',
 
   general:
     'The following is an unstructured description of a situation that may need attention. ' +

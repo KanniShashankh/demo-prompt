@@ -199,6 +199,60 @@ describe('LifeBridge Server Integration Tests', () => {
       const res = await request({ path: '/health' });
       assert.equal(res.headers['referrer-policy'], 'strict-origin-when-cross-origin');
     });
+
+    it('should include X-XSS-Protection header', async () => {
+      const res = await request({ path: '/health' });
+      assert.equal(res.headers['x-xss-protection'], '1; mode=block');
+    });
+
+    it('should include Permissions-Policy header restricting camera and microphone', async () => {
+      const res = await request({ path: '/health' });
+      const policy = res.headers['permissions-policy'] ?? '';
+      assert.ok(policy.includes('camera=()'), 'Permissions-Policy should restrict camera');
+      assert.ok(policy.includes('microphone=()'), 'Permissions-Policy should restrict microphone');
+    });
+  });
+
+  describe('POST /api/triage — format field', () => {
+    it('should not reject requests that include a valid format hint', async () => {
+      // The schema allows an optional "format" field; it should not cause a 400/413
+      const res = await request({
+        method: 'POST',
+        path: '/api/triage',
+        body: JSON.stringify({
+          input: 'temperature 41 degrees extreme heat wave warning',
+          format: 'weather',
+        }),
+      });
+      // 400/413 would mean our validation wrongly rejected the format field
+      assert.notEqual(res.statusCode, 400, 'format field should not cause 400');
+      assert.notEqual(res.statusCode, 413, 'format field should not cause 413');
+    });
+
+    it('should not reject requests that include a voice-transcript format hint', async () => {
+      const res = await request({
+        method: 'POST',
+        path: '/api/triage',
+        body: JSON.stringify({
+          input: 'Person collapsed, not breathing, need help',
+          format: 'voice-transcript',
+        }),
+      });
+      assert.notEqual(res.statusCode, 400, 'voice-transcript format should not cause 400');
+      assert.notEqual(res.statusCode, 413, 'voice-transcript format should not cause 413');
+    });
+
+    it('should not reject requests that include an iot-sensor format hint', async () => {
+      const res = await request({
+        method: 'POST',
+        path: '/api/triage',
+        body: JSON.stringify({
+          input: 'CO2 levels at 2000ppm, smoke detected, building evacuation needed',
+          format: 'iot-sensor',
+        }),
+      });
+      assert.notEqual(res.statusCode, 400);
+    });
   });
 
   describe('GET /robots.txt', () => {

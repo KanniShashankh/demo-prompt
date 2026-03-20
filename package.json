@@ -8,7 +8,9 @@
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
     "test": "tsc && node --test dist/tests/*.test.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
@@ -16,9 +18,13 @@
     "extract-json-from-string": "^1.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "eslint": "^10.0.3",
+    "globals": "^17.4.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.57.1"
   },
   "engines": {
     "node": ">=20.0.0"

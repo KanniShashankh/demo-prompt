@@ -213,3 +213,87 @@ describe('Memory: validateOutput edge cases', () => {
     assert.ok(growth < 5, `Error path memory grew by ${growth.toFixed(2)}MB`);
   });
 });
+
+// ────────────────────────────────────────────────────────────────
+// normalizeInput memory tests
+// ────────────────────────────────────────────────────────────────
+
+import { normalizeInput } from '../services/inputNormalizer';
+
+describe('Memory: normalizeInput', () => {
+  it('should not leak memory normalizing 5,000 weather JSON inputs', () => {
+    const weather = JSON.stringify({
+      temperature: 38,
+      humidity: 90,
+      conditions: 'Extreme heat wave',
+      alerts: ['Red level heat warning', 'Do not go outdoors'],
+    });
+
+    const growth = measureMemoryGrowth(5_000, () => {
+      normalizeInput(weather);
+    });
+
+    assert.ok(growth < 10, `Weather normalizer memory grew by ${growth.toFixed(2)}MB`);
+  });
+
+  it('should not leak memory normalizing 5,000 medical record JSON inputs', () => {
+    const record = JSON.stringify({
+      chiefComplaint: 'Sudden severe chest pain',
+      patientAge: 67,
+      conditions: ['Type 2 Diabetes', 'Hypertension'],
+      medications: [
+        { name: 'Metformin', dose: '500mg', frequency: 'twice daily' },
+        { name: 'Warfarin', dose: '5mg', frequency: 'daily' },
+      ],
+      allergies: ['Penicillin'],
+      vitals: { bloodPressure: '165/100', pulse: 110, oxygenSaturation: 94 },
+    });
+
+    const growth = measureMemoryGrowth(5_000, () => {
+      normalizeInput(record);
+    });
+
+    assert.ok(growth < 10, `Medical normalizer memory grew by ${growth.toFixed(2)}MB`);
+  });
+
+  it('should not leak memory normalizing 5,000 voice transcript inputs', () => {
+    const voice = JSON.stringify({
+      transcript: 'My father collapsed. He is not breathing. We are at 34 Oak Street.',
+      language: 'en-US',
+      confidence: 0.97,
+      durationSeconds: 10,
+    });
+
+    const growth = measureMemoryGrowth(5_000, () => {
+      normalizeInput(voice);
+    });
+
+    assert.ok(growth < 10, `Voice normalizer memory grew by ${growth.toFixed(2)}MB`);
+  });
+
+  it('should not leak memory normalizing 5,000 IoT sensor inputs', () => {
+    const sensor = JSON.stringify({
+      deviceId: 'aq-007',
+      deviceType: 'Air Quality Monitor',
+      readings: { pm2_5: 280, co2: 1800, no2: 150 },
+      unit: { pm2_5: 'µg/m³', co2: 'ppm', no2: 'µg/m³' },
+      alerts: ['PM2.5 HAZARDOUS', 'CO2 above threshold'],
+    });
+
+    const growth = measureMemoryGrowth(5_000, () => {
+      normalizeInput(sensor);
+    });
+
+    assert.ok(growth < 10, `IoT normalizer memory grew by ${growth.toFixed(2)}MB`);
+  });
+
+  it('should not leak memory on repeated plain-text pass-through', () => {
+    const text = 'Patient collapsed with chest pain, unresponsive. Building 3, Floor 2.';
+
+    const growth = measureMemoryGrowth(10_000, () => {
+      normalizeInput(text, 'text');
+    });
+
+    assert.ok(growth < 5, `Plain text pass-through memory grew by ${growth.toFixed(2)}MB`);
+  });
+});
