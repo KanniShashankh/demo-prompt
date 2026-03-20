@@ -10,7 +10,7 @@ A Gemini-powered web application that accepts **chaotic, real-world inputs acros
 
 The current pipeline is multi-stage and multi-modal:
 
-1. **Input normalization** — Accepts plain text plus structured JSON payloads (weather, traffic, medical records, public-health reports, IoT sensor data, voice transcripts).
+1. **Input normalization** — Accepts plain text plus structured JSON payloads (weather, traffic, medical records, news/social alerts, public-health reports, IoT sensor data, voice transcripts).
 2. **Language bridge** — Detects and translates non-English input to English (best-effort fallback-safe).
 3. **Geographic enrichment** — Extracts location mentions, geocodes them, and appends nearby emergency services context.
 4. **AI triage generation** — Uses Gemini for structured triage output (text path or image+text path).
@@ -33,7 +33,7 @@ The current pipeline is multi-stage and multi-modal:
 
 1. User visits the deployed Cloud Run URL
 2. The interface presents a large text input area with sample scenario buttons
-3. User can paste text, load a scenario, dictate speech, or attach a photo for visual triage
+3. User can paste text, load a scenario (medical/disaster/emergency/traffic/weather/news/public-health/infrastructure), dictate speech, or attach a photo for visual triage
 4. The frontend sends the text to `POST /api/triage`
 5. Server pipeline: normalize → translate → enrich location → prompt → Gemini → validate → format
 6. A structured action plan card is rendered with severity level, findings, steps, warnings, and contacts
@@ -60,6 +60,12 @@ GEMINI_API_KEY=your_key_here GEMINI_MODEL=gemini-2.5-flash pnpm start
 pnpm run lint
 pnpm test
 pnpm run typecheck
+
+# fast quality gate (default local loop)
+pnpm run quality:check
+
+# full quality gate (includes full test suite)
+pnpm run quality:full
 ```
 
 Tests include:

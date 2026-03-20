@@ -204,7 +204,7 @@ app.get('/_t', telemetryRoute);
  *   1. Validate raw input (exists, is string, within length limit)
  *   2. Normalize (convert structured formats: weather/traffic/medical-record/etc. to rich text)
  *   3. Sanitize (strip HTML/XSS vectors, normalize whitespace)
- *   4. Classify (medical / disaster / emergency / traffic / weather / public-health / infrastructure / general)
+ *   4. Classify (medical / disaster / emergency / traffic / weather / news / public-health / infrastructure / general)
  *   5. Build context-enriched prompt
  *   6. Send to Gemini (text or Vision for image inputs)
  *   7. Validate + format the action plan

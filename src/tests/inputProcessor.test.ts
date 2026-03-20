@@ -143,6 +143,11 @@ describe('classifyInputType', () => {
     assert.equal(classifyInputType(input), 'weather');
   });
 
+  it('should classify news input correctly', () => {
+    const input = 'breaking news bulletin: eyewitness report says a bridge collapse was reported at 6pm, live update pending official statement';
+    assert.equal(classifyInputType(input), 'news');
+  });
+
   it('should classify public health input correctly', () => {
     const input = 'outbreak of disease reported, community spread confirmed, quarantine zone established, virus detected';
     assert.equal(classifyInputType(input), 'public-health');
@@ -159,8 +164,8 @@ describe('classifyInputType', () => {
     assert.equal(classifyInputType(input), 'emergency');
   });
 
-  it('should return general when input only has weather and no specific alert keywords', () => {
-    // Only 1 keyword from any category — still classifies
+  it('should classify weather from a minimal single-keyword signal', () => {
+    // Even a minimal signal should classify into the matching category
     const result = classifyInputType('the temperature outside is mild');
     // 'temperature' matches weather
     assert.equal(result, 'weather');
@@ -201,6 +206,11 @@ describe('buildContextPrompt', () => {
   it('should include weather context prefix for weather input', () => {
     const prompt = buildContextPrompt('test input', 'weather');
     assert.ok(prompt.includes('weather'), 'Should contain weather context');
+  });
+
+  it('should include news context prefix for news input', () => {
+    const prompt = buildContextPrompt('test input', 'news');
+    assert.ok(prompt.includes('news') || prompt.includes('social alert'), 'Should contain news context');
   });
 
   it('should include public-health context prefix for public-health input', () => {

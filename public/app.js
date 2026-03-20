@@ -43,6 +43,18 @@ const SCENARIOS = {
     timestamp: new Date().toISOString(),
   }, null, 2),
 
+  news: JSON.stringify({
+    source: 'City News Wire',
+    timestamp: new Date().toISOString(),
+    location: 'Riverside District, Sector 12',
+    affectedArea: '3 km evacuation radius near old chemical warehouse',
+    category: 'Industrial incident',
+    urgency: 'HIGH',
+    headline: 'Breaking: Smoke plume seen after explosion at storage facility near residential zone',
+    summary: 'Local channels report multiple injuries and traffic diversions; schools instructed to shelter in place.',
+    body: 'Eyewitnesses reported two loud blasts around 07:40. Fire response teams and ambulances are on site. Officials have not yet confirmed chemical type. Residents are being asked to avoid low-lying roads and keep windows closed until air monitoring results are published.',
+  }, null, 2),
+
   publicHealth: `URGENT PUBLIC HEALTH NOTICE — Suspected norovirus outbreak traced to buffet meals served at Hotel Grandeur on 18 March. As of today 47 reported cases, 12 hospitalized with severe dehydration. Symptoms: sudden onset vomiting, diarrhoea, cramps, low-grade fever. Median onset 24hrs post-meal. Age range 8–78. Three cases are elderly patients with underlying renal conditions. The hotel kitchen remains open. Water supply to adjacent residential block shared with hotel plumbing — contamination of mains not ruled out. Local lab confirmation pending.`,
 
   infrastructure: `INFRASTRUCTURE ALERT — Major gas pipeline rupture reported at Junction 5, Industrial Sector 7. A 500m exclusion zone has been set. Two schools and a hospital are within 300m. The leak was first detected at 0610hrs; smell reported across 1.5km radius. Fire crews on scene but cannot approach; need Gas Authority emergency team. Power substation adjacent to rupture site still active — risk of ignition. 3,000 residents in the area without hot water or heating, temperature currently 4°C at night. Traffic on the industrial bypass diverted through residential streets causing gridlock near the hospital.`,

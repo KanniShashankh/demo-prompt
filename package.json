@@ -7,10 +7,16 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
-    "test": "tsc && node --test dist/tests/*.test.js",
+    "test": "pnpm run test:fast",
+    "test:fast": "tsc && node --test dist/tests/geminiParser.test.js dist/tests/inputNormalizer.test.js dist/tests/inputProcessor.test.js dist/tests/locationEnricher.test.js dist/tests/outputFormatter.test.js dist/tests/server.test.js dist/tests/speechToText.test.js dist/tests/textToSpeech.test.js dist/tests/translation.test.js",
+    "test:memory": "tsc && node --test dist/tests/memory.test.js",
+    "test:full": "tsc && node --test dist/tests/*.test.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "lint:strict": "eslint . --max-warnings=0",
+    "quality:check": "pnpm run lint:strict && pnpm run typecheck && pnpm run test:fast",
+    "quality:full": "pnpm run lint:strict && pnpm run typecheck && pnpm run test:full"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",

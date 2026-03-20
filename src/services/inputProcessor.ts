@@ -28,6 +28,7 @@ export type InputType =
   | 'emergency'
   | 'traffic'
   | 'weather'
+  | 'news'
   | 'public-health'
   | 'infrastructure'
   | 'general';
@@ -69,6 +70,13 @@ const WEATHER_KEYWORDS: readonly string[] = [
   'blizzard', 'thunderstorm', 'lightning', 'heat wave', 'cold snap',
   'weather alert', 'weather warning', 'extreme cold', 'extreme heat',
   'uv index', 'wildfire smoke', 'air quality', 'frost', 'ice storm',
+] as const;
+
+const NEWS_KEYWORDS: readonly string[] = [
+  'breaking news', 'headline', 'reporter', 'eyewitness', 'bulletin',
+  'alert bulletin', 'news alert', 'media report', 'press release',
+  'live update', 'developing story', 'reported at', 'source says',
+  'official statement', 'situation update',
 ] as const;
 
 const PUBLIC_HEALTH_KEYWORDS: readonly string[] = [
@@ -121,11 +129,11 @@ export function sanitizeInput(text: unknown): string {
 // ────────────────────────────────────────────────────────────────
 
 /**
- * Classify unstructured text into one of four categories.
+ * Classify unstructured text into one of the supported emergency categories.
  *
  * Uses a simple keyword-frequency scoring model:
  *   - Count matching keywords for each category
- *   - Highest score wins; ties favor emergency > disaster > medical
+ *   - Highest score wins; ties follow a deterministic priority order
  *   - Zero matches across all categories → 'general'
  *
  * @param text - Sanitized user input (lowercase comparison is internal)
@@ -142,24 +150,26 @@ export function classifyInputType(text: string): InputType {
   const emergencyScore      = EMERGENCY_KEYWORDS.filter(kw => lower.includes(kw)).length;
   const trafficScore        = TRAFFIC_KEYWORDS.filter(kw => lower.includes(kw)).length;
   const weatherScore        = WEATHER_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const newsScore           = NEWS_KEYWORDS.filter(kw => lower.includes(kw)).length;
   const publicHealthScore   = PUBLIC_HEALTH_KEYWORDS.filter(kw => lower.includes(kw)).length;
   const infrastructureScore = INFRASTRUCTURE_KEYWORDS.filter(kw => lower.includes(kw)).length;
 
   const maxScore = Math.max(
     medicalScore, disasterScore, emergencyScore,
-    trafficScore, weatherScore, publicHealthScore, infrastructureScore,
+    trafficScore, weatherScore, newsScore, publicHealthScore, infrastructureScore,
   );
 
   // No keywords matched at all
   if (maxScore === 0) return 'general';
 
-  // Priority on ties: emergency > disaster > traffic > medical > infrastructure > public-health > weather
+  // Priority on ties: emergency > disaster > traffic > medical > infrastructure > public-health > news > weather
   if (emergencyScore      === maxScore) return 'emergency';
   if (disasterScore       === maxScore) return 'disaster';
   if (trafficScore        === maxScore) return 'traffic';
   if (medicalScore        === maxScore) return 'medical';
   if (infrastructureScore === maxScore) return 'infrastructure';
   if (publicHealthScore   === maxScore) return 'public-health';
+  if (newsScore           === maxScore) return 'news';
   return 'weather';
 }
 
@@ -194,6 +204,11 @@ const CONTEXT_PREFIXES: Record<InputType, string> = {
     'Extract all details (conditions, temperatures, wind, precipitation, active alerts) ' +
     'and identify any life-threatening risks to people, infrastructure, or agriculture. ' +
     'Provide a structured safety action plan:',
+
+  news:
+    'The following is an unstructured news or social alert report. ' +
+    'Extract verified actionable facts (who/what/where/when, affected population, confirmed hazards, confidence level) ' +
+    'and convert it into a structured emergency triage plan, clearly separating confirmed facts from uncertain claims:',
 
   'public-health':
     'The following describes a public health situation (outbreak, contamination, or health alert). ' +
